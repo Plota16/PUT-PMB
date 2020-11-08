@@ -3,10 +3,19 @@ package com.company;
 import java.util.ArrayList;
 
 public class Node {
-    int no;
-    ArrayList<Shard> listOfShard;
-    ArrayList<Double> listOfLoad;
-    Boolean isActive;
+    private int no;
+    private ArrayList<Shard> listOfShard;
+    private ArrayList<Double> listOfLoad;
+    private ArrayList<Double> unbalancedVector;
+    private Boolean isActive;
+
+    public ArrayList<Double> getUnbalancedVector(){
+        return unbalancedVector;
+    }
+
+    public void setUnbalancedVector(ArrayList<Double> input){
+        this.unbalancedVector = input;
+    }
 
     public Boolean getIsActive(){
         return isActive;
@@ -16,9 +25,14 @@ public class Node {
         this.isActive = bool;
     }
 
-    public void addNewShardToLoad(int index){
-        for (int i=0; i< listOfLoad.size();i++){
-            listOfLoad.set(i,listOfLoad.get(i)+listOfShard.get(index).getVector().get(i));
+    public void recalculateLoad(){
+        for (int i = 0; i< listOfLoad.size(); i++) {
+            listOfLoad.set(i,0.0);
+        }
+        for (Shard shard : listOfShard){
+            for (int i = 0; i<listOfLoad.size();i++){
+                listOfLoad.set(i,listOfLoad.get(i)+shard.getVector().get(i));
+            }
         }
     }
 
@@ -35,6 +49,7 @@ public class Node {
     }
 
     public Node(int no, int timestampNo) {
+        this.unbalancedVector = new ArrayList<>();
         this.no = no;
         listOfLoad = new ArrayList<>();
         listOfShard = new ArrayList<>();

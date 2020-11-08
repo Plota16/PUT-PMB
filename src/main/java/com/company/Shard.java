@@ -13,6 +13,12 @@ public class Shard {
         module = calculateModule();
     }
 
+    public Shard(Shard shard){
+        this.no = shard.getNo();
+        this.vector = (ArrayList<Double>) shard.getVector().clone();
+        this.module = shard.getDoubleModule();
+    }
+
     public int getNo(){
         return no;
     }
@@ -27,6 +33,14 @@ public class Shard {
 
     public int getModule(){
         return (int) Math.round(module);
+    }
+
+    public double getDoubleModule(){
+        return module;
+    }
+
+    public void recalculateModule(){
+        this.module = calculateModule();
     }
 
     public Double calculateModule(){
