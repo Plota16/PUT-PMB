@@ -9,16 +9,24 @@ import java.util.stream.Collectors;
 
 public class Main {
 
-    final static int numberOfNodes = 3; //parametr
-
     static ArrayList<Shard> originalShards = new ArrayList<>();
-    static int numberOfTimestamps;
+    static int numberOfNodes;
+    static int numberOfTimeSlices;
     static int numberOfShards;
 
+    /*
+    arg1 - input file path
+    arg2 - number of nodes
+     */
     public static void main(String[] args) {
 
-        ArrayList<Node> listOfNodesBySalp = salp();
-        ArrayList<Node> listOfNodesByIncrementalSalp = IncrementalSalp();
+        originalShards = loadFile(args[0]);
+        numberOfNodes = Integer.parseInt(args[1]);
+        numberOfTimeSlices = originalShards.get(0).getVectorSize();
+        numberOfShards = originalShards.size();
+
+        ArrayList<Node> listOfNodesBySalp = salp(originalShards);
+        ArrayList<Node> listOfNodesByIncrementalSalp = IncrementalSalp(originalShards);
         System.out.println("end");
     }
 
@@ -36,30 +44,26 @@ public class Main {
     }
 
 
-    public static ArrayList<Node> IncrementalSalp(){
-        ArrayList<Node> listOfNodesBySalp = salp();
+    public static ArrayList<Node> IncrementalSalp(ArrayList<Shard> inputShards){
+        ArrayList<Node> previousCycleNodes = salp(inputShards);
 
-
-        double prevUBL = calculateUBL(listOfNodesBySalp, calculateNormalizedVector(originalShards));
+        double prevUBL = calculateUBL(previousCycleNodes, calculateNormalizedVector(inputShards));
         //petla
 
-        ArrayList<Shard> newShards = (ArrayList<Shard>) originalShards.stream().map(Shard::new).collect(Collectors.toList());
+        ArrayList<Shard> newShards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
 
         randomizeShardsLoad(newShards,10);
 
         ArrayList<Double> normalizedVector = calculateNormalizedVector(newShards);
 
-
-
         ArrayList<Node> newListOfNodes = new ArrayList<>();
-        for (Node node : listOfNodesBySalp){
-            int id = node.getNo();
-            Node newNode = new Node(id,numberOfTimestamps);
-            ArrayList<Integer> listIfShardIds = new ArrayList<>();
+        for (Node node : previousCycleNodes){
+            Node newNode = new Node(node.getNo(), numberOfTimeSlices);
+            ArrayList<Integer> listOfShardIDs = new ArrayList<>();
             for (Shard shard : node.getListOfShard()){
-                listIfShardIds.add(shard.no);
+                listOfShardIDs.add(shard.no);
             }
-            for(int shardId : listIfShardIds){
+            for(int shardId : listOfShardIDs){
                 for(Shard newShard : newShards)
                 {
                     if(newShard.no == shardId){
@@ -74,7 +78,8 @@ public class Main {
 
         double newUbl = calculateUBL(newListOfNodes, normalizedVector);
         if(newUbl > prevUBL){
-            //realocateShards()
+            System.out.println("realokacja");
+            //realocateShards();
         }
         prevUBL = newUbl;
 
@@ -98,9 +103,9 @@ public class Main {
 
     private static ArrayList<Double> calculateNormalizedVector(ArrayList<Shard> input) {
         ArrayList<Double> sumOfVectors = new ArrayList<>();
-        for (int i = 0;i<numberOfShards; i++){
+        for (int i = 0; i<input.size(); i++){
             ArrayList<Double> currentShard = input.get(i).getVector();
-            for (int j = 0;j<numberOfTimestamps; j++){
+            for (int j = 0; j < numberOfTimeSlices; j++){
 
                 if(i==0){
                     sumOfVectors.add(currentShard.get(j));
@@ -113,64 +118,59 @@ public class Main {
         }
 
         ArrayList<Double> sumOfVectorsNorm = new ArrayList<>();
-        for (int i = 0;i<numberOfTimestamps; i++){
+        for (int i = 0; i< numberOfTimeSlices; i++){
             sumOfVectorsNorm.add(sumOfVectors.get(i)/numberOfNodes);
         }
         return sumOfVectorsNorm;
     }
 
-    public static ArrayList<Node> salp(){
+    public static ArrayList<Node> salp(ArrayList<Shard> inputShards){
 
-        originalShards = loadFile();
+        ArrayList<Shard> shards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
 
+        ArrayList<Double> sumOfVectorsNormalized = calculateNormalizedVector(shards);
 
-        numberOfTimestamps = originalShards.get(0).getVectorSize();
-        numberOfShards = originalShards.size();
+        shards.sort((lhs, rhs) -> Integer.compare(rhs.getModule(), lhs.getModule()));
 
-
-        ArrayList<Double> sumOfVectorsNormalized = calculateNormalizedVector(originalShards);
-
-        originalShards.sort((lhs, rhs) -> Integer.compare(rhs.getModule(), lhs.getModule()));
-
-        ArrayList<Node> listOfNodes = new ArrayList<>();
-        for(int i=0;i<numberOfNodes; i++){
-            listOfNodes.add(new Node(i,numberOfTimestamps));
+        ArrayList<Node> resultNodes = new ArrayList<>();
+        for(int i=0; i<numberOfNodes; i++){
+            resultNodes.add(new Node(i, numberOfTimeSlices));
         }
 
-        for (Shard shard: originalShards) {
+        for (Shard shard: shards) {
             double result = 0.0;
             int bestNode = 0;
-            for (Node node: listOfNodes) {
+            for (Node node: resultNodes) {
                 if(node.getIsActive()){
                     Double moduleA = calculateModule(subVectors(node.getListOfLoad(),sumOfVectorsNormalized));
                     Double moduleB = calculateModule(subVectors(addVectors(node.getListOfLoad(),shard.getVector()),sumOfVectorsNormalized));
 
                     if((moduleA - moduleB) > result){
                         result = moduleA - moduleB;
-                        bestNode = listOfNodes.indexOf(node);
+                        bestNode = resultNodes.indexOf(node);
                     }
                 }
             }
-            listOfNodes.get(bestNode).getListOfShard().add(shard);
-            listOfNodes.get(bestNode).recalculateLoad();
-            if(calculateModule(listOfNodes.get(bestNode).getListOfLoad()) > calculateModule(sumOfVectorsNormalized)){
-                listOfNodes.get(bestNode).setIsActive(false);
+            resultNodes.get(bestNode).getListOfShard().add(shard);
+            resultNodes.get(bestNode).recalculateLoad();
+            if(calculateModule(resultNodes.get(bestNode).getListOfLoad()) > calculateModule(sumOfVectorsNormalized)){
+                resultNodes.get(bestNode).setIsActive(false);
             }
         }
 
-        for(Node node : listOfNodes){
+        for(Node node : resultNodes){
             node.setUnbalancedVector(subVectors(node.getListOfLoad(),sumOfVectorsNormalized));
         }
 
-        return listOfNodes;
+        return resultNodes;
     }
 
-    public static ArrayList<Shard> loadFile(){
+    public static ArrayList<Shard> loadFile(String path){
         ArrayList<Shard> result = new ArrayList<>();
         int counter = 0;
         BufferedReader reader;
         try {
-            reader = new BufferedReader(new FileReader("output.txt"));
+            reader = new BufferedReader(new FileReader(path));
             String line = reader.readLine();
             while (line != null) {
                 ArrayList<Double> tmpArray = new ArrayList<>();
