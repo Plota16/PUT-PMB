@@ -13,10 +13,14 @@ public class Main {
     static int numberOfNodes;
     static int numberOfTimeSlices;
     static int numberOfShards;
+    static int numberOfLoops;
+    static int randomPercent;
 
     /*
     arg1 - input file path
     arg2 - number of nodes
+    arg3 - number of loops
+    arg4 - max input load percent change per cycle
      */
     public static void main(String[] args) {
 
@@ -24,9 +28,11 @@ public class Main {
         numberOfNodes = Integer.parseInt(args[1]);
         numberOfTimeSlices = originalShards.get(0).getVectorSize();
         numberOfShards = originalShards.size();
+        numberOfLoops = Integer.parseInt(args[2]);
+        randomPercent = Integer.parseInt(args[3]);
 
         ArrayList<Node> listOfNodesBySalp = salp(originalShards);
-        ArrayList<Node> listOfNodesByIncrementalSalp = IncrementalSalp(originalShards);
+        IncrementalSalp(originalShards);
         System.out.println("end");
     }
 
@@ -44,48 +50,171 @@ public class Main {
     }
 
 
-    public static ArrayList<Node> IncrementalSalp(ArrayList<Shard> inputShards){
+    public static void IncrementalSalp(ArrayList<Shard> inputShards){
         ArrayList<Node> previousCycleNodes = salp(inputShards);
-
-        double prevUBL = calculateUBL(previousCycleNodes, calculateNormalizedVector(inputShards));
-        //petla
+        ArrayList<Node> salpNodes = (ArrayList<Node>) previousCycleNodes.stream().map(Node::new).collect(Collectors.toList());
 
         ArrayList<Shard> newShards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
 
-        randomizeShardsLoad(newShards,10);
+        //todo: delete
+        Double sumSalp = 0.0;
+        Double sumIncremental = 0.0;
+        int salpBetter = 0;
+        int incrementalBetter = 0;
 
-        ArrayList<Double> normalizedVector = calculateNormalizedVector(newShards);
+        for (int i = 0; i < numberOfLoops; i++) {
 
-        ArrayList<Node> newListOfNodes = new ArrayList<>();
-        for (Node node : previousCycleNodes){
-            Node newNode = new Node(node.getNo(), numberOfTimeSlices);
-            ArrayList<Integer> listOfShardIDs = new ArrayList<>();
-            for (Shard shard : node.getListOfShard()){
-                listOfShardIDs.add(shard.no);
+            randomizeShardsLoad(newShards,randomPercent);
+
+            ArrayList<Double> normalizedVector = calculateNormalizedVector(newShards);
+
+            //todo: delete
+            double salpUbl = calculateUBL(salp(newShards), normalizedVector);
+
+            double prevUBL = calculateUBL(previousCycleNodes, normalizedVector);
+
+            ArrayList<Node> newListOfNodes = new ArrayList<>();
+            for (Node node : previousCycleNodes){
+                Node newNode = new Node(node.getNo(), numberOfTimeSlices);
+                ArrayList<Integer> listOfShardIDs = new ArrayList<>();
+                for (Shard shard : node.getListOfShard()){
+                    listOfShardIDs.add(shard.getNo());
+                }
+                for(int shardId : listOfShardIDs){
+                    for(Shard newShard : newShards)
+                    {
+                        if(newShard.getNo() == shardId){
+                            newNode.getListOfShard().add(newShard);
+                        }
+                    }
+                }
+                newNode.recalculateLoad();
+                newNode.setUnbalancedVector(subVectors(newNode.getListOfLoad(),normalizedVector));
+                newNode.setAllShardsActive();
+                newListOfNodes.add(newNode);
             }
-            for(int shardId : listOfShardIDs){
-                for(Shard newShard : newShards)
-                {
-                    if(newShard.no == shardId){
-                        newNode.getListOfShard().add(newShard);
+
+            double newUbl = calculateUBL(newListOfNodes, normalizedVector);
+            if(newUbl > prevUBL) {
+                ArrayList<Integer> nodesToRealocate = findNodesToRealocate(newListOfNodes);
+                realocateShards(nodesToRealocate, newListOfNodes, normalizedVector, newUbl);
+            }
+            double newUbl2 = calculateUBL(newListOfNodes, normalizedVector);
+
+            if (newUbl2 < salpUbl) {
+                incrementalBetter++;
+            }
+            else if (salpUbl < newUbl2) {
+                salpBetter++;
+            }
+
+            //todo: delete
+            sumSalp += salpUbl;
+            sumIncremental += newUbl2;
+
+            previousCycleNodes = newListOfNodes;
+        }
+
+        //todo: delete
+        System.out.println("Sum of SALP: " + sumSalp + "\nSum of Incremental: " + sumIncremental);
+        System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter);
+    }
+
+    private static ArrayList<Integer> findNodesToRealocate(ArrayList<Node> nodes) {
+
+        int firstNodeId = -1;
+        int secondNodeId = -1;
+        Double unbalancedModule = 0.0;
+        Double maxUnbalancedModule = 0.0;
+
+        for (Node node : nodes) {
+            unbalancedModule =calculateModule(node.getUnbalancedVector());
+            if (unbalancedModule > maxUnbalancedModule) {
+                maxUnbalancedModule = unbalancedModule;
+                firstNodeId = node.getNo();
+            }
+        }
+
+        Double minModuleDifference = Double.MAX_VALUE;
+        for (Node node : nodes) {
+            if (node.getNo() != firstNodeId) {
+                unbalancedModule = calculateModule(subVectors(nodes.get(firstNodeId).getUnbalancedVector(), node.getUnbalancedVector()));
+                if (unbalancedModule < minModuleDifference) {
+                    minModuleDifference = unbalancedModule;
+                    secondNodeId = node.getNo();
+                }
+            }
+        }
+
+        ArrayList<Integer> result = new ArrayList<Integer>();
+        result.add(firstNodeId);
+        result.add(secondNodeId);
+        return result;
+
+    }
+
+    private static void realocateShards(ArrayList<Integer> nodeIDs, ArrayList<Node> nodes, ArrayList<Double> normalizedVector, Double currentUbl) {
+
+        Node node1 = null;
+        Node node2 = null;
+
+        for (Node node : nodes) {
+            if (nodeIDs.get(0) == node.getNo()) {
+                node1 = node;
+            }
+            else if (nodeIDs.get(1) == node.getNo()) {
+                node2 = node;
+            }
+        }
+
+        while(node1.hasActiveShard() || node2.hasActiveShard()) {
+
+            Shard shard1 = node1.getMostUnbalancedShard();
+            Shard shard2 = node2.getMostUnbalancedShard();
+
+            if (shard1 != null || shard2 != null) {
+                Double diff1 = 0.0;
+                Double diff2 = 0.0;
+                Double diff3 = 0.0;
+
+                if (shard1 != null) {
+                    transferShard(shard1, node1, node2, normalizedVector);
+                    diff1 = currentUbl - calculateUBL(nodes, normalizedVector);
+                    transferShard(shard1, node2, node1, normalizedVector);
+                }
+
+                if (shard2 != null) {
+                    transferShard(shard2, node2, node1, normalizedVector);
+                    diff2 = currentUbl - calculateUBL(nodes, normalizedVector);
+                    transferShard(shard2, node1, node2, normalizedVector);
+                }
+
+                if (diff1 >= diff2 && diff1 > 0) {
+                    transferShard(shard1, node1, node2, normalizedVector);
+                    shard1.setActive(false);
+                }
+                else if (diff1 < diff2 && diff2 > 0) {
+                    transferShard(shard2, node2, node1, normalizedVector);
+                    shard2.setActive(false);
+                }
+                else {
+                    transferShard(shard1, node1, node2, normalizedVector);
+                    transferShard(shard2, node2, node1, normalizedVector);
+                    diff3 = currentUbl - calculateUBL(nodes, normalizedVector);
+                    if (diff3 < 0) {
+                        transferShard(shard1, node2, node1, normalizedVector);
+                        transferShard(shard2, node1, node2, normalizedVector);
+                    }
+                    if (shard1 != null) {
+                        shard1.setActive(false);
+                    }
+                    if (shard2 != null) {
+                        shard2.setActive(false);
                     }
                 }
             }
-            newNode.recalculateLoad();
-            newNode.setUnbalancedVector(subVectors(newNode.getListOfLoad(),normalizedVector));
-            newListOfNodes.add(newNode);
         }
 
-        double newUbl = calculateUBL(newListOfNodes, normalizedVector);
-        if(newUbl > prevUBL){
-            System.out.println("realokacja");
-            //realocateShards();
-        }
-        prevUBL = newUbl;
-
-
-        System.out.println("kaszojad");
-        return null;
     }
 
     private static Double calculateUBL(ArrayList<Node> listOfNodes, ArrayList<Double> normalizedVector){
@@ -212,6 +341,17 @@ public class Main {
             result.add(a.get(i) - b.get(i));
         }
         return result;
+    }
+
+    public static void transferShard(Shard shard, Node nodeOut, Node nodeIn, ArrayList<Double> normalizedVector) {
+        if (shard != null) {
+            nodeOut.getListOfShard().remove(shard);
+            nodeIn.getListOfShard().add(shard);
+            nodeOut.recalculateLoad();
+            nodeOut.setUnbalancedVector(subVectors(nodeOut.getListOfLoad(), normalizedVector));
+            nodeIn.recalculateLoad();
+            nodeIn.setUnbalancedVector(subVectors(nodeIn.getListOfLoad(), normalizedVector));
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 package com.company;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 public class Node {
     private int no;
@@ -57,5 +58,48 @@ public class Node {
             listOfLoad.add(0.0);
         }
         isActive = true;
+    }
+
+    public Node(Node node) {
+        this.unbalancedVector = node.getUnbalancedVector();
+        this.no = node.getNo();
+        listOfLoad = node.getListOfLoad();
+        listOfShard = (ArrayList<Shard>) node.getListOfShard().stream().map(Shard::new).collect(Collectors.toList());
+        isActive = node.getIsActive();
+    }
+
+    public Shard getMostUnbalancedShard() {
+        Double minModule = null;
+        Double module = 0.0;
+        Shard resultShard = null;
+        for (Shard shard : this.getListOfShard()) {
+            if (shard.getIsActive()) {
+                module = shard.calculateUnbalancedFactor(this.getUnbalancedVector());
+                if (minModule == null) {
+                    minModule = module;
+                    resultShard = shard;
+                }
+                else if (module < minModule) {
+                    minModule = module;
+                    resultShard = shard;
+                }
+            }
+        }
+        return resultShard;
+    }
+
+    public void setAllShardsActive() {
+        for (Shard shard : listOfShard) {
+            shard.setActive(true);
+        }
+    }
+
+    public Boolean hasActiveShard() {
+        for (Shard shard : this.getListOfShard()) {
+            if (shard.getIsActive()) {
+                return true;
+            }
+        }
+        return false;
     }
 }
