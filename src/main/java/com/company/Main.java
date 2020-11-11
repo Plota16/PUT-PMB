@@ -36,30 +36,46 @@ public class Main {
         numberOfNodes = Integer.parseInt(args[1]);
         numberOfLoops = Integer.parseInt(args[2]);
         randomPercent = Integer.parseInt(args[3]);
-        numberOfShards = Integer.parseInt(args[4]);
-        numberOfTimestamps = Integer.parseInt(args[5]);
-        normalDistributionMean = Integer.parseInt(args[6]);
-        normalDistributionSd = Integer.parseInt(args[7]);
 
-        System.out.println(
-                "\nścieżka: " + filepath +
-                "\nilość węzłów: " + numberOfNodes +
-                "\nilość shardów: " + numberOfShards +
-                "\nilośc przedziałów: " + numberOfTimestamps +
-                "\nilość pętli: " + numberOfLoops +
-                "\nprocent randomizacji: " + randomPercent +
-                "\nśrednia rozkładu: " + normalDistributionMean +
-                "\nsd rozkładu : " + normalDistributionSd + "\n");
+        if(args.length >= 8){
+            numberOfShards = Integer.parseInt(args[4]);
+            numberOfTimestamps = Integer.parseInt(args[5]);
+            normalDistributionMean = Integer.parseInt(args[6]);
+            normalDistributionSd = Integer.parseInt(args[7]);
+
+            System.out.println(
+                    "\nścieżka: " + filepath +
+                    "\nilość węzłów: " + numberOfNodes +
+                    "\nilość shardów: " + numberOfShards +
+                    "\nilośc przedziałów: " + numberOfTimestamps +
+                    "\nilość pętli: " + numberOfLoops +
+                    "\nprocent randomizacji: " + randomPercent +
+                    "\nśrednia rozkładu: " + normalDistributionMean +
+                    "\nsd rozkładu : " + normalDistributionSd + "\n");
+
+            VectorGenerator vectorGenerator = new VectorGenerator(
+                    numberOfShards,
+                    numberOfTimestamps,
+                    normalDistributionMean,
+                    normalDistributionSd,
+                    filepath);
+
+            vectorGenerator.generate();
+        }
+        else {
+            System.out.println(
+                    "\nścieżka: " + filepath +
+                    "\nilość węzłów: " + numberOfNodes +
+                    "\nilość pętli: " + numberOfLoops +
+                    "\nprocent randomizacji: " + randomPercent + "\n");
+
+        }
 
 
-        VectorGenerator vectorGenerator = new VectorGenerator(
-                numberOfShards,
-                numberOfTimestamps,
-                normalDistributionMean,
-                normalDistributionSd,
-                filepath);
 
-        vectorGenerator.generate();
+
+
+
         originalShards = loadFile(filepath);
 
         IncrementalSalp();
