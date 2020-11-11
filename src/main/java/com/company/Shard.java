@@ -1,12 +1,10 @@
 package com.company;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
-
 import java.util.ArrayList;
 
 public class Shard {
-    private int no;
-    private ArrayList<Double> vector;
+    private final int no;
+    private final ArrayList<Double> vector;
     private Double module;
     private Boolean isActive;
 
@@ -55,7 +53,7 @@ public class Shard {
     }
 
     public Double calculateModule(){
-        Double currentValue = 0.0;
+        double currentValue = 0.0;
         for (Double element: vector ) {
             currentValue += element*element;
         }

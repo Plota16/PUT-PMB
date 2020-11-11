@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 public class Node {
-    private int no;
-    private ArrayList<Shard> listOfShard;
-    private ArrayList<Double> listOfLoad;
+    private final int no;
+    private final ArrayList<Shard> listOfShard;
+    private final ArrayList<Double> listOfLoad;
     private ArrayList<Double> unbalancedVector;
     private Boolean isActive;
 
@@ -70,7 +70,7 @@ public class Node {
 
     public Shard getMostUnbalancedShard() {
         Double minModule = null;
-        Double module = 0.0;
+        Double module;
         Shard resultShard = null;
         for (Shard shard : this.getListOfShard()) {
             if (shard.getIsActive()) {

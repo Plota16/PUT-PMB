@@ -15,50 +15,70 @@ public class Main {
     static int numberOfShards;
     static int numberOfLoops;
     static int randomPercent;
+    static int numberOfTimestamps;
+    static int normalDistributionMean;
+    static int normalDistributionSd;
+    static String filepath;
 
     /*
     arg1 - input file path
     arg2 - number of nodes
     arg3 - number of loops
     arg4 - max input load percent change per cycle
+    arg5 - number of shards
+    arg6 - number of timestamps
+    arg7 - mean for normal distribution
+    arg8 - sd for normal distribution
      */
-    public static void main(String[] args) {
 
-        originalShards = loadFile(args[0]);
+    public static void main(String[] args) throws IOException {
+
+        filepath = args[0];
         numberOfNodes = Integer.parseInt(args[1]);
-        numberOfTimeSlices = originalShards.get(0).getVectorSize();
-        numberOfShards = originalShards.size();
         numberOfLoops = Integer.parseInt(args[2]);
         randomPercent = Integer.parseInt(args[3]);
+        numberOfShards = Integer.parseInt(args[4]);
+        numberOfTimestamps = Integer.parseInt(args[5]);
+        normalDistributionMean = Integer.parseInt(args[6]);
+        normalDistributionSd = Integer.parseInt(args[7]);
 
-        ArrayList<Node> listOfNodesBySalp = salp(originalShards);
-        IncrementalSalp(originalShards);
+        System.out.println(
+                "\nścieżka: " + filepath +
+                "\nilość węzłów: " + numberOfNodes +
+                "\nilość shardów: " + numberOfShards +
+                "\nilośc przedziałów: " + numberOfTimestamps +
+                "\nilość pętli: " + numberOfLoops +
+                "\nprocent randomizacji: " + randomPercent +
+                "\nśrednia rozkładu: " + normalDistributionMean +
+                "\nsd rozkładu : " + normalDistributionSd + "\n");
+
+
+        VectorGenerator vectorGenerator = new VectorGenerator(
+                numberOfShards,
+                numberOfTimestamps,
+                normalDistributionMean,
+                normalDistributionSd,
+                filepath);
+
+        vectorGenerator.generate();
+        originalShards = loadFile(filepath);
+
+        numberOfTimeSlices = originalShards.get(0).getVectorSize();
+        numberOfShards = originalShards.size();
+
+
+        IncrementalSalp();
         System.out.println("end");
     }
 
 
-
-    public static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){
-        Random generator = new Random();
-        for (Shard shard : input){
-            for (int i=0;i<shard.getVector().size();i++){
-                double randomizedFactor = (generator.nextInt(randomPercent) - (randomPercent/2.0)) / 100.0;
-                shard.getVector().set(i,shard.getVector().get(i)*(1+randomizedFactor));
-            }
-            shard.recalculateModule();
-        }
-    }
-
-
-    public static void IncrementalSalp(ArrayList<Shard> inputShards){
-        ArrayList<Node> previousCycleNodes = salp(inputShards);
-        ArrayList<Node> salpNodes = (ArrayList<Node>) previousCycleNodes.stream().map(Node::new).collect(Collectors.toList());
-
-        ArrayList<Shard> newShards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
+    private static void IncrementalSalp(){
+        ArrayList<Node> previousCycleNodes = salp(originalShards);
+        ArrayList<Shard> newShards = (ArrayList<Shard>) originalShards.stream().map(Shard::new).collect(Collectors.toList());
 
         //todo: delete
-        Double sumSalp = 0.0;
-        Double sumIncremental = 0.0;
+        double sumSalp = 0.0;
+        double sumIncremental = 0.0;
         int salpBetter = 0;
         int incrementalBetter = 0;
 
@@ -96,8 +116,8 @@ public class Main {
 
             double newUbl = calculateUBL(newListOfNodes, normalizedVector);
             if(newUbl > prevUBL) {
-                ArrayList<Integer> nodesToRealocate = findNodesToRealocate(newListOfNodes);
-                realocateShards(nodesToRealocate, newListOfNodes, normalizedVector, newUbl);
+                ArrayList<Integer> nodesToRealocate = findNodesToReallocate(newListOfNodes);
+                reallocateShards(nodesToRealocate, newListOfNodes, normalizedVector, newUbl);
             }
             double newUbl2 = calculateUBL(newListOfNodes, normalizedVector);
 
@@ -120,40 +140,18 @@ public class Main {
         System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter);
     }
 
-    private static ArrayList<Integer> findNodesToRealocate(ArrayList<Node> nodes) {
-
-        int firstNodeId = -1;
-        int secondNodeId = -1;
-        Double unbalancedModule = 0.0;
-        Double maxUnbalancedModule = 0.0;
-
-        for (Node node : nodes) {
-            unbalancedModule =calculateModule(node.getUnbalancedVector());
-            if (unbalancedModule > maxUnbalancedModule) {
-                maxUnbalancedModule = unbalancedModule;
-                firstNodeId = node.getNo();
+    private static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){
+        Random generator = new Random();
+        for (Shard shard : input){
+            for (int i=0;i<shard.getVector().size();i++){
+                double randomizedFactor = (generator.nextInt(randomPercent) - (randomPercent/2.0)) / 100.0;
+                shard.getVector().set(i,shard.getVector().get(i)*(1+randomizedFactor));
             }
+            shard.recalculateModule();
         }
-
-        Double minModuleDifference = Double.MAX_VALUE;
-        for (Node node : nodes) {
-            if (node.getNo() != firstNodeId) {
-                unbalancedModule = calculateModule(subVectors(nodes.get(firstNodeId).getUnbalancedVector(), node.getUnbalancedVector()));
-                if (unbalancedModule < minModuleDifference) {
-                    minModuleDifference = unbalancedModule;
-                    secondNodeId = node.getNo();
-                }
-            }
-        }
-
-        ArrayList<Integer> result = new ArrayList<Integer>();
-        result.add(firstNodeId);
-        result.add(secondNodeId);
-        return result;
-
     }
 
-    private static void realocateShards(ArrayList<Integer> nodeIDs, ArrayList<Node> nodes, ArrayList<Double> normalizedVector, Double currentUbl) {
+    private static void reallocateShards(ArrayList<Integer> nodeIDs, ArrayList<Node> nodes, ArrayList<Double> normalizedVector, Double currentUbl) {
 
         Node node1 = null;
         Node node2 = null;
@@ -173,9 +171,9 @@ public class Main {
             Shard shard2 = node2.getMostUnbalancedShard();
 
             if (shard1 != null || shard2 != null) {
-                Double diff1 = 0.0;
-                Double diff2 = 0.0;
-                Double diff3 = 0.0;
+                double diff1 = 0.0;
+                double diff2 = 0.0;
+                double diff3 = 0.0;
 
                 if (shard1 != null) {
                     transferShard(shard1, node1, node2, normalizedVector);
@@ -217,17 +215,48 @@ public class Main {
 
     }
 
-    private static Double calculateUBL(ArrayList<Node> listOfNodes, ArrayList<Double> normalizedVector){
-        double sumOfModules = 0.0;
-        for(Node node : listOfNodes){
-             sumOfModules += calculateModule(node.getUnbalancedVector());
-         }
-
-        double sumOfLoads = 0.0;
-        for(Double load : normalizedVector){
-            sumOfLoads += load*numberOfNodes;
+    private static void transferShard(Shard shard, Node nodeOut, Node nodeIn, ArrayList<Double> normalizedVector) {
+        if (shard != null) {
+            nodeOut.getListOfShard().remove(shard);
+            nodeIn.getListOfShard().add(shard);
+            nodeOut.recalculateLoad();
+            nodeOut.setUnbalancedVector(subVectors(nodeOut.getListOfLoad(), normalizedVector));
+            nodeIn.recalculateLoad();
+            nodeIn.setUnbalancedVector(subVectors(nodeIn.getListOfLoad(), normalizedVector));
         }
-        return  sumOfModules/sumOfLoads;
+    }
+
+    private static ArrayList<Integer> findNodesToReallocate(ArrayList<Node> nodes) {
+
+        int firstNodeId = -1;
+        int secondNodeId = -1;
+        double unbalancedModule;
+        double maxUnbalancedModule = 0.0;
+
+        for (Node node : nodes) {
+            unbalancedModule =calculateModule(node.getUnbalancedVector());
+            if (unbalancedModule > maxUnbalancedModule) {
+                maxUnbalancedModule = unbalancedModule;
+                firstNodeId = node.getNo();
+            }
+        }
+
+        double minModuleDifference = Double.MAX_VALUE;
+        for (Node node : nodes) {
+            if (node.getNo() != firstNodeId) {
+                unbalancedModule = calculateModule(subVectors(nodes.get(firstNodeId).getUnbalancedVector(), node.getUnbalancedVector()));
+                if (unbalancedModule < minModuleDifference) {
+                    minModuleDifference = unbalancedModule;
+                    secondNodeId = node.getNo();
+                }
+            }
+        }
+
+        ArrayList<Integer> result = new ArrayList<>();
+        result.add(firstNodeId);
+        result.add(secondNodeId);
+        return result;
+
     }
 
     private static ArrayList<Double> calculateNormalizedVector(ArrayList<Shard> input) {
@@ -253,7 +282,7 @@ public class Main {
         return sumOfVectorsNorm;
     }
 
-    public static ArrayList<Node> salp(ArrayList<Shard> inputShards){
+    private static ArrayList<Node> salp(ArrayList<Shard> inputShards){
 
         ArrayList<Shard> shards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
 
@@ -294,7 +323,7 @@ public class Main {
         return resultNodes;
     }
 
-    public static ArrayList<Shard> loadFile(String path){
+    private static ArrayList<Shard> loadFile(String path){
         ArrayList<Shard> result = new ArrayList<>();
         int counter = 0;
         BufferedReader reader;
@@ -319,7 +348,22 @@ public class Main {
         return result;
     }
 
-    public static Double calculateModule(List<Double> list){
+    private static Double calculateUBL(ArrayList<Node> listOfNodes, ArrayList<Double> normalizedVector){
+        double sumOfModules = 0.0;
+        for(Node node : listOfNodes){
+            sumOfModules += calculateModule(node.getUnbalancedVector());
+        }
+
+        double sumOfLoads = 0.0;
+        for(Double load : normalizedVector){
+            sumOfLoads += load*numberOfNodes;
+        }
+        return  sumOfModules/sumOfLoads;
+    }
+
+    //package private
+
+    static Double calculateModule(List<Double> list){
         double currentValue = 0.0;
         for (Double element: list ) {
             currentValue += element*element;
@@ -327,7 +371,7 @@ public class Main {
         return Math.sqrt(currentValue);
     }
 
-    public static ArrayList<Double> addVectors(ArrayList<Double> a, ArrayList<Double> b){
+    static ArrayList<Double> addVectors(ArrayList<Double> a, ArrayList<Double> b){
         ArrayList<Double> result = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
             result.add(a.get(i) + b.get(i));
@@ -335,7 +379,7 @@ public class Main {
         return result;
     }
 
-    public static ArrayList<Double> subVectors(ArrayList<Double> a, ArrayList<Double> b){
+    static ArrayList<Double> subVectors(ArrayList<Double> a, ArrayList<Double> b){
         ArrayList<Double> result = new ArrayList<>();
         for (int i = 0; i < a.size(); i++) {
             result.add(a.get(i) - b.get(i));
@@ -343,15 +387,5 @@ public class Main {
         return result;
     }
 
-    public static void transferShard(Shard shard, Node nodeOut, Node nodeIn, ArrayList<Double> normalizedVector) {
-        if (shard != null) {
-            nodeOut.getListOfShard().remove(shard);
-            nodeIn.getListOfShard().add(shard);
-            nodeOut.recalculateLoad();
-            nodeOut.setUnbalancedVector(subVectors(nodeOut.getListOfLoad(), normalizedVector));
-            nodeIn.recalculateLoad();
-            nodeIn.setUnbalancedVector(subVectors(nodeIn.getListOfLoad(), normalizedVector));
-        }
-    }
 }
 
