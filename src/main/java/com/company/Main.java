@@ -11,7 +11,6 @@ public class Main {
 
     static ArrayList<Shard> originalShards = new ArrayList<>();
     static int numberOfNodes;
-    static int numberOfTimeSlices;
     static int numberOfShards;
     static int numberOfLoops;
     static int randomPercent;
@@ -63,16 +62,15 @@ public class Main {
         vectorGenerator.generate();
         originalShards = loadFile(filepath);
 
-        numberOfTimeSlices = originalShards.get(0).getVectorSize();
-        numberOfShards = originalShards.size();
-
-
         IncrementalSalp();
         System.out.println("end");
     }
 
 
     private static void IncrementalSalp(){
+
+        int numberOfTimeSlices = originalShards.get(0).getVectorSize();
+
         ArrayList<Node> previousCycleNodes = salp(originalShards);
         ArrayList<Shard> newShards = (ArrayList<Shard>) originalShards.stream().map(Shard::new).collect(Collectors.toList());
 
@@ -85,7 +83,6 @@ public class Main {
         for (int i = 0; i < numberOfLoops; i++) {
 
             randomizeShardsLoad(newShards,randomPercent);
-
             ArrayList<Double> normalizedVector = calculateNormalizedVector(newShards);
 
             //todo: delete
@@ -263,8 +260,7 @@ public class Main {
         ArrayList<Double> sumOfVectors = new ArrayList<>();
         for (int i = 0; i<input.size(); i++){
             ArrayList<Double> currentShard = input.get(i).getVector();
-            for (int j = 0; j < numberOfTimeSlices; j++){
-
+            for (int j = 0; j < input.get(0).getVectorSize(); j++){
                 if(i==0){
                     sumOfVectors.add(currentShard.get(j));
                 }
@@ -276,7 +272,7 @@ public class Main {
         }
 
         ArrayList<Double> sumOfVectorsNorm = new ArrayList<>();
-        for (int i = 0; i< numberOfTimeSlices; i++){
+        for (int i = 0; i< input.get(0).getVectorSize(); i++){
             sumOfVectorsNorm.add(sumOfVectors.get(i)/numberOfNodes);
         }
         return sumOfVectorsNorm;
@@ -284,6 +280,7 @@ public class Main {
 
     private static ArrayList<Node> salp(ArrayList<Shard> inputShards){
 
+        int numberOfTimeSlices = inputShards.get(0).getVectorSize();
         ArrayList<Shard> shards = (ArrayList<Shard>) inputShards.stream().map(Shard::new).collect(Collectors.toList());
 
         ArrayList<Double> sumOfVectorsNormalized = calculateNormalizedVector(shards);
