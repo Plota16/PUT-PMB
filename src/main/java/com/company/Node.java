@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 public class Node {
     private final int no;
     private final ArrayList<Shard> listOfShard;
-    private final ArrayList<Double> listOfLoad;
+    private ArrayList<Double> listOfLoad;
     private ArrayList<Double> unbalancedVector;
     private Boolean isActive;
 
@@ -27,12 +27,13 @@ public class Node {
     }
 
     public void recalculateLoad(){
-        for (int i = 0; i< listOfLoad.size(); i++) {
-            listOfLoad.set(i,0.0);
+        for (int i = 0; i < listOfLoad.size(); i++) {
+            listOfLoad.set(i, 0.0);
         }
         for (Shard shard : listOfShard){
             for (int i = 0; i<listOfLoad.size();i++){
-                listOfLoad.set(i,listOfLoad.get(i)+shard.getVector().get(i));
+                double value = listOfLoad.get(i) + shard.getVector().get(i);
+                listOfLoad.set(i, value);
             }
         }
     }
@@ -69,15 +70,17 @@ public class Node {
     }
 
     public Shard getMostUnbalancedShard() {
-        Double minModule = null;
-        Double module;
+        double minModule = 0.0;
+        double module;
         Shard resultShard = null;
-        for (Shard shard : this.getListOfShard()) {
+        boolean intialized = false;
+        for (Shard shard : listOfShard) {
             if (shard.getIsActive()) {
-                module = shard.calculateUnbalancedFactor(this.getUnbalancedVector());
-                if (minModule == null) {
+                module = shard.calculateUnbalancedFactor(unbalancedVector);
+                if (!intialized) {
                     minModule = module;
                     resultShard = shard;
+                    intialized = true;
                 }
                 else if (module < minModule) {
                     minModule = module;

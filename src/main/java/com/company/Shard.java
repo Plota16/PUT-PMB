@@ -11,7 +11,7 @@ public class Shard {
     public Shard(int  no, ArrayList<Double> vector){
         this.no = no;
         this.vector = vector;
-        module = calculateModule();
+        module = Main.calculateModule(vector);
         isActive = true;
     }
 
@@ -49,25 +49,23 @@ public class Shard {
     }
 
     public void recalculateModule(){
-        this.module = calculateModule();
-    }
-
-    public Double calculateModule(){
-        double currentValue = 0.0;
-        for (Double element: vector ) {
-            currentValue += element*element;
-        }
-        return Math.sqrt(currentValue);
+        this.module = Main.calculateModule(vector);
     }
 
     public Double calculateUnbalancedFactor(ArrayList<Double> unbalancedVector) {
+        ArrayList<Double> unbalancedVector2 = new ArrayList<>();
+
         for (int i = 0; i < unbalancedVector.size(); i++) {
-            if (unbalancedVector.get(i) < 0) {
-                unbalancedVector.set(i, 0.0);
+            unbalancedVector2.add(unbalancedVector.get(i));
+        }
+
+        for (int i = 0; i < unbalancedVector2.size(); i++) {
+            if (unbalancedVector2.get(i) < 0) {
+                unbalancedVector2.set(i, 0.0);
             }
         }
 
-        return Main.calculateModule(Main.subVectors(unbalancedVector, vector));
+        return Main.calculateModule(Main.subVectors(unbalancedVector2, vector));
     }
 
 }

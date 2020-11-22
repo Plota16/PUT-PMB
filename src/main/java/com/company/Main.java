@@ -4,7 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
+import static java.lang.Math.*;
 
 
 public class Main {
@@ -18,6 +18,9 @@ public class Main {
     static int normalDistributionMean;
     static int normalDistributionSd;
     static String filepath;
+
+    //todo: delete2
+    static int numberOfReallocations;
 
     /*
     arg1 - input file path
@@ -71,11 +74,6 @@ public class Main {
 
         }
 
-
-
-
-
-
         originalShards = loadFile(filepath);
 
         IncrementalSalp();
@@ -85,17 +83,15 @@ public class Main {
 
     private static void IncrementalSalp(){
 
-        int numberOfTimeSlices = originalShards.get(0).getVectorSize();
-//        ArrayList<Shard> newShards = (ArrayList<Shard>) originalShards.stream().map(Shard::new).collect(Collectors.toList());
         ArrayList<Node> previousCycleNodes = salp(originalShards);
         ArrayList<Node> salpNodes = salp(originalShards);
-
 
         //todo: delete
         double sumSalp = 0.0;
         double sumIncremental = 0.0;
         int salpBetter = 0;
         int incrementalBetter = 0;
+        int equal = 0;
 
         for (int i = 0; i < numberOfLoops; i++) {
 
@@ -103,51 +99,37 @@ public class Main {
             double prevUBL = calculateUBL(previousCycleNodes, sumVector);
 
             randomizeShardsLoad(originalShards,randomPercent);
+
+            for (int j = 0; j < numberOfNodes; j++) {
+                salpNodes.get(j).recalculateLoad();
+                previousCycleNodes.get(j).recalculateLoad();
+            }
+
             ArrayList<Double> normalizedVector = calculateNormalizedVector(originalShards);
             sumVector = calculateSumVector(originalShards);
 
             //todo: delete
             double salpUbl = calculateUBL(salpNodes, sumVector);
 
-
-
             ArrayList<Node> newListOfNodes = previousCycleNodes;
-//            for (Node node : previousCycleNodes){
-//                Node newNode = new Node(node.getNo(), numberOfTimeSlices);
-//                ArrayList<Integer> listOfShardIDs = new ArrayList<>();
-//                for (Shard shard : node.getListOfShard()){
-//                    listOfShardIDs.add(shard.getNo());
-//                }
-//                for(int shardId : listOfShardIDs){
-//                    for(Shard newShard : originalShards)
-//                    {
-//                        if(newShard.getNo() == shardId){
-//                            newNode.getListOfShard().add(newShard);
-//                        }
-//                    }
-//                }
-//                newNode.recalculateLoad();
-//                newNode.setUnbalancedVector(subVectors(newNode.getListOfLoad(),normalizedVector));
-//                newNode.setAllShardsActive();
-//                newListOfNodes.add(newNode);
-//            }
 
             double newUbl = calculateUBL(newListOfNodes, sumVector);
+
             if(newUbl > prevUBL) {
                 ArrayList<Integer> nodesToRealocate = findNodesToReallocate(newListOfNodes);
-                reallocateShards(nodesToRealocate, newListOfNodes, normalizedVector, sumVector, newUbl);
+                reallocateShards(nodesToRealocate, newListOfNodes, normalizedVector, sumVector);
             }
 
             double newUbl2 = calculateUBL(newListOfNodes, sumVector);
 
-            if(newUbl2 > newUbl){
-                System.out.println("");
-            }
             if (newUbl2 < salpUbl) {
                 incrementalBetter++;
             }
             else if (salpUbl < newUbl2) {
                 salpBetter++;
+            }
+            else {
+                equal++;
             }
 
             //todo: delete
@@ -159,7 +141,8 @@ public class Main {
 
         //todo: delete
         System.out.println("Sum of SALP: " + sumSalp + "\nSum of Incremental: " + sumIncremental);
-        System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter);
+        System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter + "\nEqual: " + equal);
+        System.out.println("Number of reallocations: " + numberOfReallocations);
     }
 
     private static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){
@@ -173,7 +156,7 @@ public class Main {
         }
     }
 
-    private static void reallocateShards(ArrayList<Integer> nodeIDs, ArrayList<Node> nodes, ArrayList<Double> normalizedVector, ArrayList<Double> sumVector, Double currentUbl) {
+    private static void reallocateShards(ArrayList<Integer> nodeIDs, ArrayList<Node> nodes, ArrayList<Double> normalizedVector, ArrayList<Double> sumVector) {
 
         Node node1 = null;
         Node node2 = null;
@@ -188,6 +171,8 @@ public class Main {
         }
 
         while(node1.hasActiveShard() || node2.hasActiveShard()) {
+
+            double currentUbl = calculateUBL(nodes, sumVector);
 
             Shard shard1 = node1.getMostUnbalancedShard();
             Shard shard2 = node2.getMostUnbalancedShard();
@@ -212,10 +197,12 @@ public class Main {
                 if (diff1 >= diff2 && diff1 > 0) {
                     transferShard(shard1, node1, node2, normalizedVector);
                     shard1.setActive(false);
+                    numberOfReallocations++;
                 }
                 else if (diff1 < diff2 && diff2 > 0) {
                     transferShard(shard2, node2, node1, normalizedVector);
                     shard2.setActive(false);
+                    numberOfReallocations++;
                 }
                 else {
                     transferShard(shard1, node1, node2, normalizedVector);
@@ -224,6 +211,9 @@ public class Main {
                     if (diff3 < 0) {
                         transferShard(shard1, node2, node1, normalizedVector);
                         transferShard(shard2, node1, node2, normalizedVector);
+                    }
+                    else {
+                        numberOfReallocations++;
                     }
                     if (shard1 != null) {
                         shard1.setActive(false);
@@ -343,8 +333,8 @@ public class Main {
             int bestNode = 0;
             for (Node node: resultNodes) {
                 if(node.getIsActive()){
-                    Double moduleA = calculateModule(subVectors(node.getListOfLoad(),sumOfVectorsNormalized));
-                    Double moduleB = calculateModule(subVectors(addVectors(node.getListOfLoad(),shard.getVector()),sumOfVectorsNormalized));
+                    double moduleA = calculateModule(subVectors(node.getListOfLoad(),sumOfVectorsNormalized));
+                    double moduleB = calculateModule(subVectors(addVectors(node.getListOfLoad(),shard.getVector()),sumOfVectorsNormalized));
 
                     if((moduleA - moduleB) > result){
                         result = moduleA - moduleB;
@@ -391,27 +381,28 @@ public class Main {
         return result;
     }
 
-    private static Double calculateUBL(ArrayList<Node> listOfNodes, ArrayList<Double> normalizedVector){
+    private static double calculateUBL(ArrayList<Node> listOfNodes, ArrayList<Double> loadVector){
         double sumOfModules = 0.0;
         for(Node node : listOfNodes){
             sumOfModules += calculateModule(node.getUnbalancedVector());
         }
 
         double sumOfLoads = 0.0;
-        for(Double load : normalizedVector){
+        for(double load : loadVector){
             sumOfLoads += load;
         }
-        return  sumOfModules/sumOfLoads;
+
+        return Round_off(sumOfModules/sumOfLoads, 10);
     }
 
     //package private
 
-    static Double calculateModule(List<Double> list){
+    static double calculateModule(List<Double> list){
         double currentValue = 0.0;
-        for (Double element: list ) {
+        for (double element: list ) {
             currentValue += element*element;
         }
-        return Math.sqrt(currentValue);
+        return Round_off(Math.sqrt(currentValue), 10);
     }
 
     static ArrayList<Double> addVectors(ArrayList<Double> a, ArrayList<Double> b){
@@ -430,5 +421,31 @@ public class Main {
         return result;
     }
 
+    static double Round_off(double N, double n) {
+        int h;
+        double b, d, e, i, j, m, f;
+        b = N;
+
+        // Counting the no. of digits to the left of decimal point
+        // in the given no.
+        for (i = 0; b >= 1; ++i)
+            b = b / 10;
+
+        d = n - i;
+        b = N;
+        b = b * pow(10, d);
+        e = b + 0.5;
+        if ((float) e == (float) ceil(b)) {
+            f = (ceil(b));
+            h = (int) (f - 2);
+            if (h % 2 != 0) {
+                e = e - 1;
+            }
+        }
+        j = floor(e);
+        m = pow(10, d);
+        j = j / m;
+        return j;
+    }
 }
 
