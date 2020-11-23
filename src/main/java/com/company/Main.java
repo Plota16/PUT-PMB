@@ -100,13 +100,15 @@ public class Main {
 
             randomizeShardsLoad(originalShards,randomPercent);
 
-            for (int j = 0; j < numberOfNodes; j++) {
-                salpNodes.get(j).recalculateLoad();
-                previousCycleNodes.get(j).recalculateLoad();
-            }
-
             ArrayList<Double> normalizedVector = calculateNormalizedVector(originalShards);
             sumVector = calculateSumVector(originalShards);
+
+            for (int j = 0; j < numberOfNodes; j++) {
+                salpNodes.get(j).recalculateLoad();
+                salpNodes.get(j).setUnbalancedVector(subVectors(salpNodes.get(j).getListOfLoad(), normalizedVector));
+                previousCycleNodes.get(j).recalculateLoad();
+                previousCycleNodes.get(j).setUnbalancedVector(subVectors(previousCycleNodes.get(j).getListOfLoad(), normalizedVector));
+            }
 
             //todo: delete
             double salpUbl = calculateUBL(salpNodes, sumVector);
@@ -288,7 +290,7 @@ public class Main {
 
         ArrayList<Double> sumOfVectorsNorm = new ArrayList<>();
         for (int i = 0; i< input.get(0).getVectorSize(); i++){
-            sumOfVectorsNorm.add(sumOfVectors.get(i)/numberOfNodes);
+            sumOfVectorsNorm.add(Round_off(sumOfVectors.get(i)/numberOfNodes, 10));
         }
         return sumOfVectorsNorm;
     }
@@ -304,7 +306,6 @@ public class Main {
                 else{
                     sumOfVectors.set(j,sumOfVectors.get(j)+currentShard.get(j));
                 }
-
             }
         }
 
