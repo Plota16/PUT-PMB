@@ -130,15 +130,15 @@ public class Main {
 
             newUbl2 = calculateUBL(newListOfNodes, sumVector);
 
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpUbl), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newUbl2), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
-            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocationsOld != numberOfReallocations), true);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpUbl), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newUbl2), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocationsOld != numberOfReallocations), true);
 
             numberOfReallocationsOld = numberOfReallocations;
 
@@ -163,6 +163,15 @@ public class Main {
         System.out.println("Sum of SALP: " + sumSalp + "\nSum of Incremental: " + sumIncremental);
         System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter + "\nEqual: " + equal);
         System.out.println("Number of reallocations: " + numberOfReallocations);
+
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), true);
+
     }
 
     private static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){
@@ -428,9 +437,9 @@ public class Main {
     static double calculateModule(List<Double> list){
         double currentValue = 0.0;
         for (double element: list ) {
-            currentValue += element*element;
+            currentValue += Math.abs(element);
         }
-        return Round_off(Math.sqrt(currentValue), 10);
+        return currentValue;
     }
 
     static ArrayList<Double> addVectors(ArrayList<Double> a, ArrayList<Double> b){
