@@ -9,7 +9,9 @@ import static java.lang.Math.*;
 
 public class Main {
 
+    public static final String OUTPUT_TXT = "output2.txt";
     static ArrayList<Shard> originalShards = new ArrayList<>();
+    static ArrayList<Shard> originalShards2 = new ArrayList<>();
     static int numberOfNodes;
     static int numberOfShards;
     static int numberOfLoops;
@@ -21,6 +23,7 @@ public class Main {
 
     //todo: delete2
     static int numberOfReallocations;
+    static int numberOfReallocationsOld;
 
     /*
     arg1 - input file path
@@ -75,6 +78,7 @@ public class Main {
         }
 
         originalShards = loadFile(filepath);
+        originalShards2 = loadFile(filepath);
 
         IncrementalSalp();
         System.out.println("end");
@@ -92,6 +96,8 @@ public class Main {
         int salpBetter = 0;
         int incrementalBetter = 0;
         int equal = 0;
+        double salpUbl = 0;
+        double newUbl2 = 0;
 
         for (int i = 0; i < numberOfLoops; i++) {
 
@@ -111,7 +117,7 @@ public class Main {
             }
 
             //todo: delete
-            double salpUbl = calculateUBL(salpNodes, sumVector);
+            salpUbl = calculateUBL(salpNodes, sumVector);
 
             ArrayList<Node> newListOfNodes = previousCycleNodes;
 
@@ -122,7 +128,19 @@ public class Main {
                 reallocateShards(nodesToRealocate, newListOfNodes, normalizedVector, sumVector);
             }
 
-            double newUbl2 = calculateUBL(newListOfNodes, sumVector);
+            newUbl2 = calculateUBL(newListOfNodes, sumVector);
+
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpUbl), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newUbl2), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+//            CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocationsOld != numberOfReallocations), true);
+
+            numberOfReallocationsOld = numberOfReallocations;
 
             if (newUbl2 < salpUbl) {
                 incrementalBetter++;
@@ -145,14 +163,32 @@ public class Main {
         System.out.println("Sum of SALP: " + sumSalp + "\nSum of Incremental: " + sumIncremental);
         System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter + "\nEqual: " + equal);
         System.out.println("Number of reallocations: " + numberOfReallocations);
+
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), true);
+
     }
 
     private static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){
         Random generator = new Random();
         for (Shard shard : input){
-            for (int i=0;i<shard.getVector().size();i++){
+
+            Shard shardToProcess = null;
+
+            for (Shard shard1 : originalShards2) {
+                if (shard1.getNo() == shard.getNo()) {
+                    shardToProcess = shard1;
+                }
+            }
+
+            for (int i=0; i < shard.getVector().size(); i++){
                 double randomizedFactor = (generator.nextInt(randomPercent) - (randomPercent/2.0)) / 100.0;
-                shard.getVector().set(i,shard.getVector().get(i)*(1+randomizedFactor));
+                shard.getVector().set(i, shardToProcess.getVector().get(i) * (1 + randomizedFactor));
             }
             shard.recalculateModule();
         }
@@ -401,9 +437,9 @@ public class Main {
     static double calculateModule(List<Double> list){
         double currentValue = 0.0;
         for (double element: list ) {
-            currentValue += element*element;
+            currentValue += Math.abs(element);
         }
-        return Round_off(Math.sqrt(currentValue), 10);
+        return currentValue;
     }
 
     static ArrayList<Double> addVectors(ArrayList<Double> a, ArrayList<Double> b){
