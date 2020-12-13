@@ -19,6 +19,8 @@ public class Main {
     static int numberOfTimestamps;
     static int normalDistributionMean;
     static int normalDistributionSd;
+    static double power;
+    static double taskFrequencyFactor;
     static String filepath;
 
     //todo: delete2
@@ -34,6 +36,8 @@ public class Main {
     arg6 - number of timestamps
     arg7 - mean for normal distribution
     arg8 - sd for normal distribution
+    arg9 - power
+    arg10 - task frequency factor
      */
 
     public static void main(String[] args) throws IOException {
@@ -48,6 +52,8 @@ public class Main {
             numberOfTimestamps = Integer.parseInt(args[5]);
             normalDistributionMean = Integer.parseInt(args[6]);
             normalDistributionSd = Integer.parseInt(args[7]);
+            power = Double.parseDouble(args[8]);
+            taskFrequencyFactor = Double.parseDouble(args[9]);
 
             System.out.println(
                     "\nścieżka: " + filepath +
@@ -57,7 +63,9 @@ public class Main {
                     "\nilość pętli: " + numberOfLoops +
                     "\nprocent randomizacji: " + randomPercent +
                     "\nśrednia rozkładu: " + normalDistributionMean +
-                    "\nsd rozkładu : " + normalDistributionSd + "\n");
+                    "\nsd rozkładu : " + normalDistributionSd +
+                    "\nmoc : " + power +
+                    "\nwspółczynnik częstości przedkładana zadań : " + taskFrequencyFactor + "\n");
 
             VectorGenerator vectorGenerator = new VectorGenerator(
                     numberOfShards,
@@ -98,6 +106,8 @@ public class Main {
         int equal = 0;
         double salpUbl = 0;
         double newUbl2 = 0;
+        double newListOfNodesEstimatedLatency = 0;
+        double salpNodesEstimatedLatency = 0;
 
         for (int i = 0; i < numberOfLoops; i++) {
 
@@ -156,6 +166,9 @@ public class Main {
             sumSalp += salpUbl;
             sumIncremental += newUbl2;
 
+            newListOfNodesEstimatedLatency += estimateLatency(newListOfNodes);
+            salpNodesEstimatedLatency += estimateLatency(salpNodes);
+
             previousCycleNodes = newListOfNodes;
         }
 
@@ -164,14 +177,24 @@ public class Main {
         System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter + "\nEqual: " + equal);
         System.out.println("Number of reallocations: " + numberOfReallocations);
 
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), true);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newListOfNodesEstimatedLatency), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpNodesEstimatedLatency), true);
 
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), true);
+
+    }
+
+    private static double estimateLatency(ArrayList<Node> nodes) {
+        return nodes.stream()
+                .map(n -> n.estimateNodeLatency(power, taskFrequencyFactor, numberOfTimestamps))
+                .mapToDouble(Double::doubleValue)
+                .sum();
     }
 
     private static void randomizeShardsLoad(ArrayList<Shard> input, int randomPercent){

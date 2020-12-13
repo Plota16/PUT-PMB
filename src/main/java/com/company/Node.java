@@ -1,7 +1,9 @@
 package com.company;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 public class Node {
     private final int no;
@@ -24,6 +26,17 @@ public class Node {
 
     public void setIsActive(boolean bool){
         this.isActive = bool;
+    }
+
+    public double getSumLoad() {
+        return listOfLoad.stream()
+                .mapToDouble(Double::doubleValue)
+                .sum();
+    }
+
+    public double estimateNodeLatency(double power, double taskFrequencyFactor, int timestampsCount) {
+        double p = getSumLoad() / (power * timestampsCount);
+        return getSumLoad() * (p / (1 - p)) * (taskFrequencyFactor * taskFrequencyFactor / 2);
     }
 
     public void recalculateLoad(){
