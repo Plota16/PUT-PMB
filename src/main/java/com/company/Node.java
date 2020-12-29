@@ -36,7 +36,7 @@ public class Node {
 
     public double estimateNodeLatency(double power, double taskFrequencyFactor, int timestampsCount) {
         double p = getSumLoad() / (power * timestampsCount);
-        return getSumLoad() * (p / (1 - p)) * (taskFrequencyFactor * taskFrequencyFactor / 2);
+        return getSumLoad() * (p / (100 - p)) * ((taskFrequencyFactor * taskFrequencyFactor + 1) / 2);
     }
 
     public void recalculateLoad(){
