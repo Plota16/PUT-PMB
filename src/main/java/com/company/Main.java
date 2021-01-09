@@ -22,6 +22,8 @@ public class Main {
     static double power;
     static double taskFrequencyFactor;
     static String filepath;
+    final static double E_S = 0.1;
+    final static double C_Si = 0.5;
 
     //todo: delete2
     static int numberOfReallocations;
@@ -108,8 +110,15 @@ public class Main {
         double newUbl2 = 0;
         double newListOfNodesEstimatedLatency = 0;
         double salpNodesEstimatedLatency = 0;
+        double averageOfAverageSalp = 0;
+        double averageOfAverageIncremental = 0;
+        double sumAverageOfAverageSalp = 0;
+        double sumAverageOfAverageIncremental = 0;
 
         for (int i = 0; i < numberOfLoops; i++) {
+
+            averageOfAverageSalp = 0;
+            averageOfAverageIncremental = 0;
 
             ArrayList<Double> sumVector = calculateSumVector(originalShards);
             double prevUBL = calculateUBL(previousCycleNodes, sumVector);
@@ -169,6 +178,19 @@ public class Main {
             newListOfNodesEstimatedLatency += estimateLatency(newListOfNodes);
             salpNodesEstimatedLatency += estimateLatency(salpNodes);
 
+            for (int j = 0; j < numberOfNodes; j++) {
+                salpNodes.get(j).estimateNodeLatency2();
+                averageOfAverageSalp += salpNodes.get(j).getAverageSum();
+                newListOfNodes.get(j).estimateNodeLatency2();
+                averageOfAverageIncremental += newListOfNodes.get(j).getAverageSum();
+
+                salpNodes.get(j).checkIfPowerIsSufficient();
+                newListOfNodes.get(j).checkIfPowerIsSufficient();
+            }
+
+            sumAverageOfAverageSalp += (averageOfAverageSalp / (numberOfNodes * numberOfTimestamps));
+            sumAverageOfAverageIncremental += (averageOfAverageIncremental / (numberOfNodes * numberOfTimestamps));
+
             previousCycleNodes = newListOfNodes;
         }
 
@@ -177,16 +199,18 @@ public class Main {
         System.out.println("SALP better: " + salpBetter + "\nIncremental better: " + incrementalBetter + "\nEqual: " + equal);
         System.out.println("Number of reallocations: " + numberOfReallocations);
 
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newListOfNodesEstimatedLatency), false);
-        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpNodesEstimatedLatency), true);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(newListOfNodesEstimatedLatency), false);
+//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(salpNodesEstimatedLatency), true);
 
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
-//        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), true);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfLoops), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(randomPercent), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfShards), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfNodes), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumSalp), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumIncremental), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(numberOfReallocations), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumAverageOfAverageSalp/numberOfLoops), false);
+        CreateCSV.saveToCsv(OUTPUT_TXT, String.valueOf(sumAverageOfAverageIncremental/numberOfLoops), true);
 
     }
 
@@ -506,6 +530,21 @@ public class Main {
         m = pow(10, d);
         j = j / m;
         return j;
+    }
+
+    static double getMean(List<Double> data) {
+        double sum = 0.0;
+        for(double a : data)
+            sum += a;
+        return sum/data.size();
+    }
+
+    static double getSD(List<Double> data) {
+        double mean = getMean(data);
+        double temp = 0;
+        for(double a :data)
+            temp += (a-mean)*(a-mean);
+        return Math.sqrt(temp/(data.size()-1));
     }
 }
 
